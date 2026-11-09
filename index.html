@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mission Special BCS</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;700&display=swap">
+<style>
+:root{--bg:#f2f7f5;--card:#fff;--ink:#10231f;--mute:#5a6e69;--line:#cfdcd8;--pri:#0e6b5c;--on:#fff;--err:#b3261e}
+@media (prefers-color-scheme:dark){:root{--bg:#0d1715;--card:#15231f;--ink:#e6f1ee;--mute:#9bb0aa;--line:#2a3d38;--pri:#3fbfa6;--on:#06201a;--err:#ff8a80}}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;display:grid;place-items:center;padding:16px;background:var(--bg);color:var(--ink);font-family:"Hind Siliguri",system-ui,sans-serif;font-size:17px;line-height:1.6}
+main{width:100%;max-width:400px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:28px 22px}
+h1{margin:0 0 4px;font-size:26px}
+p.sub{margin:0 0 22px;color:var(--mute)}
+label{display:block;font-weight:500;margin:14px 0 4px}
+input{width:100%;padding:12px;font:inherit;color:var(--ink);background:transparent;border:1px solid var(--line);border-radius:8px}
+input:focus,button:focus-visible{outline:2px solid var(--pri);outline-offset:2px}
+button{font:inherit;cursor:pointer}
+.main-btn{width:100%;margin-top:20px;padding:12px;font-weight:700;color:var(--on);background:var(--pri);border:0;border-radius:8px}
+.link{background:none;border:0;padding:4px 0;color:var(--pri);text-decoration:underline}
+.row{display:flex;justify-content:space-between;margin-top:14px;flex-wrap:wrap}
+#msg{min-height:1.6em;margin:12px 0 0;color:var(--err)}
+#msg.ok{color:var(--pri)}
+.hidden{display:none}
+</style>
+</head>
+<body>
+<main>
+  <h1>Mission Special BCS</h1>
+
+  <section id="authView">
+    <p class="sub" id="modeText">অ্যাকাউন্টে লগইন করুন</p>
+    <label for="email">ইমেইল</label>
+    <input id="email" type="email" autocomplete="email" inputmode="email">
+    <label for="password">পাসওয়ার্ড (কমপক্ষে ৬ অক্ষর)</label>
+    <input id="password" type="password" autocomplete="current-password">
+    <button class="main-btn" id="submitBtn">লগইন করুন</button>
+    <div class="row">
+      <button class="link" id="toggleBtn">নতুন অ্যাকাউন্ট খুলুন</button>
+      <button class="link" id="resetBtn">পাসওয়ার্ড ভুলে গেছেন?</button>
+    </div>
+  </section>
+
+  <section id="homeView" class="hidden">
+    <p class="sub">লগইন করা আছে: <strong id="userEmail"></strong></p>
+    <p>এখানে আপনার মডেল টেস্ট ও সাবজেক্ট ফাইনাল যোগ হবে।</p>
+    <button class="main-btn" id="logoutBtn">লগআউট</button>
+  </section>
+
+  <p id="msg" role="status"></p>
+</main>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
+import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword,
+  signOut, onAuthStateChanged, sendPasswordResetEmail }
+  from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
+
+/* ====== এখানে Firebase থেকে কপি করা firebaseConfig পেস্ট করুন ====== */
+const firebaseConfig = {
+  apiKey: "AIzaSyCT0MtyJKIjH8LgpJSD1UD96EKUenDwuR0",
+  authDomain: "mission-special-bcs.firebaseapp.com",
+  databaseURL: "https://mission-special-bcs-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "mission-special-bcs",
+  storageBucket: "mission-special-bcs.firebasestorage.app",
+  messagingSenderId: "223149788321",
+  appId: "1:223149788321:web:8d022746694df2755c34e0",
+  measurementId: "G-ZVF15GHN76"
+};
+/* ================================================================= */
+
+const auth = getAuth(initializeApp(firebaseConfig));
+const $ = id => document.getElementById(id);
+let signup = false;
+
+const errors = {
+  "auth/invalid-email": "ইমেইল ঠিক নেই।",
+  "auth/missing-password": "পাসওয়ার্ড লিখুন।",
+  "auth/weak-password": "পাসওয়ার্ড কমপক্ষে ৬ অক্ষরের দিন।",
+  "auth/email-already-in-use": "এই ইমেইলে অ্যাকাউন্ট আছে। লগইন করুন।",
+  "auth/invalid-credential": "ইমেইল বা পাসওয়ার্ড ভুল।",
+  "auth/user-not-found": "এই ইমেইলে অ্যাকাউন্ট নেই।",
+  "auth/too-many-requests": "অনেকবার চেষ্টা হয়েছে। কিছুক্ষণ পরে আবার দিন।",
+  "auth/network-request-failed": "ইন্টারনেট সংযোগ পরীক্ষা করুন।",
+  "auth/unauthorized-domain": "এই ডোমেইন Firebase-এর Authorized domains-এ যোগ করুন।"
+};
+const say = (t, ok) => { $("msg").textContent = t; $("msg").className = ok ? "ok" : ""; };
+
+$("toggleBtn").onclick = () => {
+  signup = !signup;
+  $("modeText").textContent = signup ? "নতুন অ্যাকাউন্ট খুলুন" : "অ্যাকাউন্টে লগইন করুন";
+  $("submitBtn").textContent = signup ? "অ্যাকাউন্ট খুলুন" : "লগইন করুন";
+  $("toggleBtn").textContent = signup ? "আগে থেকেই অ্যাকাউন্ট আছে" : "নতুন অ্যাকাউন্ট খুলুন";
+  $("password").autocomplete = signup ? "new-password" : "current-password";
+  say("");
+};
+
+$("submitBtn").onclick = async () => {
+  const email = $("email").value.trim(), pass = $("password").value;
+  say("অপেক্ষা করুন…", true);
+  try {
+    if (signup) await createUserWithEmailAndPassword(auth, email, pass);
+    else await signInWithEmailAndPassword(auth, email, pass);
+    say("");
+  } catch (e) { say(errors[e.code] || "কিছু একটা সমস্যা হয়েছে। আবার চেষ্টা করুন।"); }
+};
+
+$("resetBtn").onclick = async () => {
+  const email = $("email").value.trim();
+  if (!email) return say("আগে ইমেইল লিখুন।");
+  try { await sendPasswordResetEmail(auth, email); say("পাসওয়ার্ড রিসেটের লিংক ইমেইলে পাঠানো হয়েছে।", true); }
+  catch (e) { say(errors[e.code] || "লিংক পাঠানো যায়নি।"); }
+};
+
+$("logoutBtn").onclick = () => signOut(auth);
+
+onAuthStateChanged(auth, user => {
+  $("authView").classList.toggle("hidden", !!user);
+  $("homeView").classList.toggle("hidden", !user);
+  if (user) $("userEmail").textContent = user.email;
+});
+</script>
+</body>
+</html>
